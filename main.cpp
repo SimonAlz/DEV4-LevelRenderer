@@ -10,7 +10,7 @@
 #define GATEWARE_DISABLE_GRASTERSURFACE // we have another template for this
 #define GATEWARE_DISABLE_GOPENGLSURFACE // we have another template for this
 // With what we want & what we don't defined we can include the API
-#include "../Gateware/Gateware.h"
+#include "Gateware.h"
 #include "renderer.h"
 // open some namespaces to compact the code a bit
 using namespace GW;
