@@ -137,16 +137,16 @@ float4 main(OBJ_VERT_OUT inputVertex) : SV_TARGET
     float Fangle = saturate(dot(Normal.xyz, -SceneData[0].sunDirection.xyz));
     float4 DirectLight = (float4(SceneData[0].materials[meshid].Kd, 1)) * SceneData[0].SunColor * Fangle;
     float4 Ambient = float4(0.25, 0.25, 0.35, 1.0);
-    float4 IndirectLight =  Ambient * (float4(SceneData[0].materials[meshid].Kd, 1));
+    float4 IndirectLight =  Ambient;
 
     //return saturate(DirectLight + IndirectLight) * (float4(SceneData[0].materials[meshid].Kd, 1) + 0 + float4(SceneData[0].materials[meshid].Ke, 1));
 
     // TODO: Part 4c
     // TODO: Part 4g (half-vector or reflect method your choice)
 	float3 ViewDir = normalize(SceneData[0].camWorldpos.xyz - inputVertex.POSW);
-    float3 Halfvector = normalize((-SceneData[0].sunDirection.xyz) + ViewDir);. 
-    float Intensity = max(clamp(dot(Normal, Halfvector)) * SceneData[0].materials[meshid].Ns);
-    float4 ReflectedLight = SceneData[0].SunColor * SceneData[0].materials[meshid].Ks * Intensity;
+    float3 Halfvector = normalize((-SceneData[0].sunDirection.xyz) + ViewDir);
+    float Intensity = pow(saturate(dot(Normal, Halfvector)), SceneData[0].materials[meshid].Ns);
+    float4 ReflectedLight = SceneData[0].SunColor * float4(SceneData[0].materials[meshid].Ks, 1) * Intensity;
 
     return saturate(DirectLight + IndirectLight) * (float4(SceneData[0].materials[meshid].Kd, 1) + ReflectedLight + float4(SceneData[0].materials[meshid].Ke, 1));
 }
@@ -201,11 +201,12 @@ class Renderer
 	MATH::GVECTORF lightDir;
 	MATH::GVECTORF lightColor;
 	MATH::GVector proxy2;
+	MATH::GMATRIXF worldCamera;
 	// TODO: Part 2b
 #define MAX_SUBMESH_PER_DRAW 1024
 	struct SHADER_MODEL_DATA
 	{
-		MATH::GVECTORF sunDir, sunColor;
+		MATH::GVECTORF sunDir, sunColor, camWorldPos;
 		MATH::GMATRIXF view_matrix, projectionMatrix;
 		MATH::GMATRIXF matrices[MAX_SUBMESH_PER_DRAW];
 		OBJ_ATTRIBUTES materials[MAX_SUBMESH_PER_DRAW];
@@ -231,7 +232,7 @@ public:
 		MATH::GVECTORF at1 = { 0.15f, 0.75f, 0, 1 };
 		MATH::GVECTORF up1 = { 0, 1, 0, 1 };
 		proxy.LookAtLHF(eye1, at1, up1, viewMatrix);
-
+		proxy.InverseF(viewMatrix, worldCamera);
 		float aspectRatio;
 		proxy.IdentityF(perspectiveLeftMtrx);
 		vlk.GetAspectRatio(aspectRatio);
@@ -250,6 +251,7 @@ public:
 		modelData.projectionMatrix = perspectiveLeftMtrx;
 		modelData.sunColor = color;
 		modelData.sunDir = direction;
+		modelData.camWorldPos = worldCamera.row4;
 		for (size_t i = 0; i < FSLogo_materialcount; i++)
 		{
 			modelData.materials[i] = FSLogo_materials[i].attrib;
