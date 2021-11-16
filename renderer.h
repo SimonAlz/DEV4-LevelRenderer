@@ -1,6 +1,8 @@
 // minimalistic code to draw a single triangle, this is not part of the API.
 // TODO: Part 1b
 #include "FSLogo.h"
+#include "h2bParser.h"
+#include "Blacksmith.h"
 #include <vector>
 #include "shaderc/shaderc.h" // needed for compiling shaders at runtime
 #ifdef _WIN32 // must use MT platform DLL libraries on windows
@@ -135,7 +137,7 @@ float4 main(OBJ_VERT_OUT inputVertex) : SV_TARGET
 
 	float4 Normal = normalize(float4(inputVertex.nxnynz, 0));
     float Fangle = saturate(dot(Normal.xyz, -SceneData[0].sunDirection.xyz));
-    float4 DirectLight = (float4(SceneData[0].materials[meshid].Kd, 1)) * SceneData[0].SunColor * Fangle;
+    float4 DirectLight = SceneData[0].SunColor * Fangle;
     float4 Ambient = float4(0.25, 0.25, 0.35, 1.0);
     float4 IndirectLight =  Ambient;
 
@@ -165,9 +167,9 @@ class Renderer
 	// TODO: Part 2b
 	
 	// proxy handles
-	GW::SYSTEM::GWindow win;
-	GW::GRAPHICS::GVulkanSurface vlk;
-	GW::CORE::GEventReceiver shutdown;
+	SYSTEM::GWindow win;
+	GRAPHICS::GVulkanSurface vlk;
+	CORE::GEventReceiver shutdown;
 
 	// what we need at a minimum to draw a triangle
 	VkDevice device = nullptr;
@@ -187,6 +189,12 @@ class Renderer
 	// TODO: Part 2g
 	vector<VkBuffer> handleStorage;
 	vector<VkDeviceMemory> dataStorage;
+
+	//Camera control
+	GW::INPUT::GInput GInput;
+	GW::INPUT::GController GController;
+	MATH::GMATRIXF cameraMtrxOut;
+	//MATH::GMATRIXF matrixOfView2;
 
 	VkDescriptorSetLayout layoutOfDescriptor = nullptr;
 	VkDescriptorPool poolDescriptor = nullptr;
@@ -215,9 +223,11 @@ class Renderer
 public:
 
 	SHADER_MODEL_DATA modelData;
+	H2B::Parser parse;
 
 	Renderer(GW::SYSTEM::GWindow _win, GW::GRAPHICS::GVulkanSurface _vlk)
 	{
+		parse.Parse("../Blacksmith.h2b");
 		win = _win;
 		vlk = _vlk;
 		unsigned int width, height;
@@ -225,6 +235,8 @@ public:
 		win.GetClientHeight(height);
 		// TODO: Part 2a
 		proxy.Create();
+		GInput.Create(win);
+		GController.Create();
 		proxy.IdentityF(worldMatrix);
 		proxy.IdentityF(viewMatrix);
 
@@ -251,12 +263,9 @@ public:
 		modelData.projectionMatrix = perspectiveLeftMtrx;
 		modelData.sunColor = color;
 		modelData.sunDir = direction;
+		modelData.materials[0] = Blacksmith_materials[0].attrib;
 		modelData.camWorldPos = worldCamera.row4;
-		for (size_t i = 0; i < FSLogo_materialcount; i++)
-		{
-			modelData.materials[i] = FSLogo_materials[i].attrib;
-		}
-		
+		//modelData.materials[0] = parse.materials[0].attrib;
 
 		// TODO: Part 4g
 		// TODO: part 3b
@@ -271,40 +280,63 @@ public:
 		// Create Vertex Buffer
 
 
-		logoVertex fsLogo[3885];
+		logoVertex fsLogo[12766];
 
-		for (unsigned i = 0; i < 3885; i++)
+		for (unsigned i = 0; i < 12766; i++) //3885
 		{
-			fsLogo[i].x = FSLogo_vertices[i].pos.x;
-			fsLogo[i].y = FSLogo_vertices[i].pos.y;
-			fsLogo[i].z = FSLogo_vertices[i].pos.z;
+			//fsLogo[i].x = FSLogo_vertices[i].pos.x;
+			//fsLogo[i].y = FSLogo_vertices[i].pos.y;
+			//fsLogo[i].z = FSLogo_vertices[i].pos.z;
 
-			fsLogo[i].UVx = FSLogo_vertices[i].uvw.x;
-			fsLogo[i].UVy = FSLogo_vertices[i].uvw.y;
-			fsLogo[i].UVz = FSLogo_vertices[i].uvw.z;
+			//fsLogo[i].UVx = FSLogo_vertices[i].uvw.x;
+			//fsLogo[i].UVy = FSLogo_vertices[i].uvw.y;
+			//fsLogo[i].UVz = FSLogo_vertices[i].uvw.z;
 
-			fsLogo[i].x_norm = FSLogo_vertices[i].nrm.x;
-			fsLogo[i].y_norm = FSLogo_vertices[i].nrm.y;
-			fsLogo[i].z_norm = FSLogo_vertices[i].nrm.z;
+			//fsLogo[i].x_norm = FSLogo_vertices[i].nrm.x;
+			//fsLogo[i].y_norm = FSLogo_vertices[i].nrm.y;
+			//fsLogo[i].z_norm = FSLogo_vertices[i].nrm.z;
+
+			fsLogo[i].x = Blacksmith_vertices[i].pos.x;
+			fsLogo[i].y = Blacksmith_vertices[i].pos.y;
+			fsLogo[i].z = Blacksmith_vertices[i].pos.z;
+
+			fsLogo[i].UVx = Blacksmith_vertices[i].uvw.x;
+			fsLogo[i].UVy = Blacksmith_vertices[i].uvw.y;
+			fsLogo[i].UVz = Blacksmith_vertices[i].uvw.z;
+
+			fsLogo[i].x_norm = Blacksmith_vertices[i].nrm.x;
+			fsLogo[i].y_norm = Blacksmith_vertices[i].nrm.y;
+			fsLogo[i].z_norm = Blacksmith_vertices[i].nrm.z;
 		}
 
-		//int logoIndex[8532];
-		//for (unsigned i = 0; i < 8532; i++)
-		//{
-		//	logoIndex[i] = FSLogo_indices[i];
-		//}
-
+		/*for (size_t i = 0; i < FSLogo_materialcount; i++)
+		{
+			modelData.materials[i] = FSLogo_materials[i].attrib;
+		}*/
+		for (size_t i = 0; i < Blacksmith_materialcount; i++)
+		{
+			modelData.materials[i] = Blacksmith_materials[i].attrib;
+		}
 		// Transfer triangle data to the vertex buffer. (staging would be prefered here)
 
-		GvkHelper::create_buffer(physicalDevice, device, sizeof(FSLogo_vertices),
+		//GvkHelper::create_buffer(physicalDevice, device, sizeof(FSLogo_vertices),
+		//	VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+		//	VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &vertexHandle, &vertexData);
+		//GvkHelper::write_to_buffer(device, vertexData, FSLogo_vertices, sizeof(FSLogo_vertices));
+		//// TODO: Part 1g
+		//GvkHelper::create_buffer(physicalDevice, device, sizeof(FSLogo_indices),
+		//	VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+		//	VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &vertexHandle2, &vertexData2);
+		//GvkHelper::write_to_buffer(device, vertexData2, FSLogo_indices, sizeof(FSLogo_indices));
+		GvkHelper::create_buffer(physicalDevice, device, sizeof(Blacksmith_vertices),
 			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
 			VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &vertexHandle, &vertexData);
-		GvkHelper::write_to_buffer(device, vertexData, FSLogo_vertices, sizeof(FSLogo_vertices));
+		GvkHelper::write_to_buffer(device, vertexData, Blacksmith_vertices, sizeof(Blacksmith_vertices));
 		// TODO: Part 1g
-		GvkHelper::create_buffer(physicalDevice, device, sizeof(FSLogo_indices),
+		GvkHelper::create_buffer(physicalDevice, device, sizeof(Blacksmith_indices),
 			VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
 			VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &vertexHandle2, &vertexData2);
-		GvkHelper::write_to_buffer(device, vertexData2, FSLogo_indices, sizeof(FSLogo_indices));
+		GvkHelper::write_to_buffer(device, vertexData2, Blacksmith_indices, sizeof(Blacksmith_indices));
 		// TODO: Part 2d
 		unsigned max_frames = 0;
 		// to avoid per-frame resource sharing issues we give each "in-flight" frame its own buffer
@@ -605,6 +637,15 @@ public:
 		vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 		vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+
+		worldCamera = viewMatrix;
+		float aspectRatio;
+		proxy.IdentityF(perspectiveLeftMtrx);
+		vlk.GetAspectRatio(aspectRatio);
+		proxy.ProjectionVulkanLHF(1.134, aspectRatio, 0.1f, 100, perspectiveLeftMtrx);
+		
+		modelData.view_matrix = viewMatrix;
+
 		GvkHelper::write_to_buffer(device, dataStorage[currentBuffer], &modelData, sizeof(SHADER_MODEL_DATA));
 		// TODO: Part 2i
 		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &setDescriptor[currentBuffer], 0, nullptr);
@@ -617,13 +658,86 @@ public:
 		// TODO: Part 3b
 			// TODO: Part 3d
 		//vkCmdDraw(commandBuffer, 3885, MAX_SUBMESH_PER_DRAW, 0, 0); // TODO: Part 1d, 1h
-		for (unsigned int i = 0; i < FSLogo_meshcount; i++)
+		/*for (unsigned int i = 0; i < FSLogo_meshcount; i++)
 		{
 			vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(unsigned), &i);
 			vkCmdDrawIndexed(commandBuffer, FSLogo_meshes[i].indexCount, 1, FSLogo_meshes[i].indexOffset, 0, 0);
+		}*/
+		for (unsigned int i = 0; i < Blacksmith_meshcount; i++)
+		{
+			vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(unsigned), &i);
+			vkCmdDrawIndexed(commandBuffer, Blacksmith_meshes[i].indexCount, 1, Blacksmith_meshes[i].indexOffset, 0, 0);
 		}
 	}
+	void UpdateCamera()
+	{
+
+		static auto Timeplus = std::chrono::system_clock::now();
+		auto Timeplus2 = std::chrono::system_clock::now();
+		float delta = std::chrono::duration_cast<std::chrono::seconds>(Timeplus2 - Timeplus).count();
+		//Timeplus = Timeplus2;
+		// TODO: Part 4c
+		proxy.InverseF(viewMatrix, worldCamera);
+		//// TODO: Part 4d
+		float totalY = 0;
+		float totalX = 0;
+		float totalZ = 0;
+		float tP = 0;
+		float tYAW = 0;
+		const float camera_speed = 0.0003f;
+		float aspectratio;
+		float space_bar;
+		float left_Shift;
+		float rightT;
+		float leftT;
+		GInput.GetState(23, space_bar);
+		GInput.GetState(14, left_Shift);
+		GController.GetState(0, 7, rightT);
+		GController.GetState(0, 6, leftT);
+		totalY = space_bar - leftT + rightT - leftT;
+		//// TODO: Part 4e
+		float W;
+		float S;
+		float LSY;
+		GInput.GetState(60, W);
+		GInput.GetState(56, S);
+		GController.GetState(0, 17, LSY);
+		totalZ = W - S + LSY;
+
+		float D;
+		float A;
+		float LSX;
+		GInput.GetState(41, D);
+		GInput.GetState(38, A);
+		GController.GetState(0, 16, LSX);
+		totalX = D - A + LSX;
+
+		//// TODO: Part 4f
+		float MYD;
+		float MXD;
+		float RSY;
+		GInput.GetMouseDelta(MXD, MYD);
+		GController.GetState(0, 19, RSY);
+		// TODO: Part 4g
+		float RSX;
+		GController.GetState(0, 18, RSX);
+		vlk.GetAspectRatio(aspectratio);
+		//// TODO: Part 4c
+
+		tP = 3.1344 * (-MYD / 20) / 600 + (-RSY / 30000) * (-3.14 * delta);
+		tYAW = 3.1344 * aspectratio * (MXD / 20) / 800 + (RSX / 30000) * (-3.14 * delta);
+		totalY = totalY * camera_speed * delta;
+		proxy.RotationYawPitchRollF(tYAW, tP, 0, cameraMtrxOut);
+		proxy.MultiplyMatrixF(worldCamera, cameraMtrxOut, worldCamera);
+		GW::MATH::GVECTORF Y = { 0.0f,totalY,0.0f,1.0f };
+		GW::MATH::GVECTORF XZ = { totalX * camera_speed * delta ,0.0,totalZ * camera_speed * delta, 1.0f };
+		proxy.TranslateGlobalF(worldCamera, Y, worldCamera);
+		proxy.TranslateLocalF(worldCamera, XZ, worldCamera);
+		proxy.InverseF(worldCamera, viewMatrix);
+	}; 
+
 	
+
 private:
 	void CleanUp()
 	{

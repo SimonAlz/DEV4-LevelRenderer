@@ -4,6 +4,7 @@
 #define GATEWARE_ENABLE_GRAPHICS // Enables all Graphics Libraries
 // TODO: Part 3a
 #define GATEWARE_ENABLE_MATH
+#define GATEWARE_ENABLE_INPUT
 // Ignore some GRAPHICS libraries we aren't going to use
 #define GATEWARE_DISABLE_GDIRECTX11SURFACE // we have another template for this
 #define GATEWARE_DISABLE_GDIRECTX12SURFACE // we have another template for this
@@ -12,21 +13,58 @@
 // With what we want & what we don't defined we can include the API
 #include "Gateware.h"
 #include "renderer.h"
+#include <fstream>
+#include <iostream>
 // open some namespaces to compact the code a bit
 using namespace GW;
 using namespace CORE;
 using namespace SYSTEM;
 using namespace GRAPHICS;
 // lets pop a window and use Vulkan to clear to a red screen
+void HelperParse()
+{
+	ifstream file("../GameLevel.txt");
+	string strng;
+	vector<string> Length_Lines;
+	vector<string> mesh;
+	vector<string> Lights;
+	vector<string> Camera;
+
+	if (!file)
+	{
+		cerr << "Error: Error: Can't load file. Error" << endl;
+		exit(1);
+	}
+	if (file.is_open())
+	{
+		while (getline(file, strng))
+		{
+			Length_Lines.push_back(strng);
+		}
+		for (size_t i = 0; i < Length_Lines.size(); i++)
+		{
+			if (Length_Lines[i] == "MESH")
+			{
+				for (size_t j = 0; j < 6; j++)
+				{
+					mesh.push_back(Length_Lines[i + j]);
+					cerr << Length_Lines[i + j] << endl;
+				}
+			}
+		}
+	}
+	file.close();
+};
 int main()
 {
 	GWindow win;
 	GEventResponder msgs;
 	GVulkanSurface vulkan;
+	HelperParse();
 	if (+win.Create(0, 0, 800, 600, GWindowStyle::WINDOWEDBORDERED))
 	{
 		// TODO: Part 1a
-		win.SetWindowName("Simon Alzate -  Lab 4");
+		win.SetWindowName("Simon Alzate - Level Renderer");
 		VkClearValue clrAndDepth[2];
 		clrAndDepth[0].color = { {0, 0, 0, 1} };
 		clrAndDepth[1].depthStencil = { 1.0f, 0u };
@@ -54,6 +92,7 @@ int main()
 			{
 				if (+vulkan.StartFrame(2, clrAndDepth))
 				{
+					renderer.UpdateCamera();
 					renderer.Update();
 					renderer.Render();
 					vulkan.EndFrame(true);
