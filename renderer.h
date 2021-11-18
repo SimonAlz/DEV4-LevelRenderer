@@ -217,8 +217,22 @@ class Renderer
 		MATH::GVECTORF sunDir, sunColor, camWorldPos;
 		MATH::GMATRIXF view_matrix, projectionMatrix;
 		MATH::GMATRIXF matrices[MAX_SUBMESH_PER_DRAW];
-		OBJ_ATTRIBUTES materials[MAX_SUBMESH_PER_DRAW];
+		H2B::ATTRIBUTES materials[MAX_SUBMESH_PER_DRAW];
 	};
+	struct MyStruct
+	{
+		char version[4];
+		unsigned vertexCount;
+		unsigned indexCount;
+		unsigned materialCount;
+		unsigned meshCount;
+		std::vector<H2B::VERTEX> vertices;
+		std::vector<unsigned> indices;
+		std::vector<H2B::MATERIAL> materials;
+		std::vector<H2B::BATCH> batches;
+		std::vector<H2B::MESH> meshes;
+	};
+	//Array that stores data from the models
 	// TODO: Part 4g
 public:
 
@@ -230,6 +244,10 @@ public:
 		parse.Parse("../Blacksmith.h2b");
 		win = _win;
 		vlk = _vlk;
+		for (size_t i = 0; i < 1 /*Array Size*/; i++)
+		{
+			//set array values :)
+		}
 		unsigned int width, height;
 		win.GetClientWidth(width);
 		win.GetClientHeight(height);
@@ -263,7 +281,7 @@ public:
 		modelData.projectionMatrix = perspectiveLeftMtrx;
 		modelData.sunColor = color;
 		modelData.sunDir = direction;
-		modelData.materials[0] = Blacksmith_materials[0].attrib;
+		modelData.materials[0] = parse.materials[0].attrib;
 		modelData.camWorldPos = worldCamera.row4;
 		//modelData.materials[0] = parse.materials[0].attrib;
 
@@ -296,7 +314,7 @@ public:
 			//fsLogo[i].y_norm = FSLogo_vertices[i].nrm.y;
 			//fsLogo[i].z_norm = FSLogo_vertices[i].nrm.z;
 
-			fsLogo[i].x = Blacksmith_vertices[i].pos.x;
+			/*fsLogo[i].x = Blacksmith_vertices[i].pos.x;
 			fsLogo[i].y = Blacksmith_vertices[i].pos.y;
 			fsLogo[i].z = Blacksmith_vertices[i].pos.z;
 
@@ -306,16 +324,28 @@ public:
 
 			fsLogo[i].x_norm = Blacksmith_vertices[i].nrm.x;
 			fsLogo[i].y_norm = Blacksmith_vertices[i].nrm.y;
-			fsLogo[i].z_norm = Blacksmith_vertices[i].nrm.z;
+			fsLogo[i].z_norm = Blacksmith_vertices[i].nrm.z;*/
+
+			fsLogo[i].x = parse.vertices[i].pos.x;
+			fsLogo[i].y = parse.vertices[i].pos.y;
+			fsLogo[i].z = parse.vertices[i].pos.z;
+
+			fsLogo[i].UVx = parse.vertices[i].uvw.x;
+			fsLogo[i].UVy = parse.vertices[i].uvw.y;
+			fsLogo[i].UVz = parse.vertices[i].uvw.z;
+
+			fsLogo[i].x_norm = parse.vertices[i].nrm.x;
+			fsLogo[i].y_norm = parse.vertices[i].nrm.y;
+			fsLogo[i].z_norm = parse.vertices[i].nrm.z;
 		}
 
 		/*for (size_t i = 0; i < FSLogo_materialcount; i++)
 		{
 			modelData.materials[i] = FSLogo_materials[i].attrib;
 		}*/
-		for (size_t i = 0; i < Blacksmith_materialcount; i++)
+		for (size_t i = 0; i < parse.materialCount; i++)
 		{
-			modelData.materials[i] = Blacksmith_materials[i].attrib;
+			modelData.materials[i] = parse.materials[i].attrib;
 		}
 		// Transfer triangle data to the vertex buffer. (staging would be prefered here)
 
@@ -328,6 +358,15 @@ public:
 		//	VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
 		//	VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &vertexHandle2, &vertexData2);
 		//GvkHelper::write_to_buffer(device, vertexData2, FSLogo_indices, sizeof(FSLogo_indices));
+		//GvkHelper::create_buffer(physicalDevice, device, sizeof(parse.vertices),
+		//	VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+		//	VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &vertexHandle, &vertexData);
+		//GvkHelper::write_to_buffer(device, vertexData, Blacksmith_vertices, sizeof(parse.vertices));
+		//// TODO: Part 1g
+		//GvkHelper::create_buffer(physicalDevice, device, sizeof(parse.indices),
+		//	VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+		//	VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &vertexHandle2, &vertexData2);
+		//GvkHelper::write_to_buffer(device, vertexData2, Blacksmith_indices, sizeof(parse.indices));
 		GvkHelper::create_buffer(physicalDevice, device, sizeof(Blacksmith_vertices),
 			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
 			VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &vertexHandle, &vertexData);
