@@ -5,6 +5,7 @@
 // TODO: Part 3a
 #define GATEWARE_ENABLE_MATH
 #define GATEWARE_ENABLE_INPUT
+#define GATEWARE_ENABLE_AUDIO
 // Ignore some GRAPHICS libraries we aren't going to use
 #define GATEWARE_DISABLE_GDIRECTX11SURFACE // we have another template for this
 #define GATEWARE_DISABLE_GDIRECTX12SURFACE // we have another template for this
@@ -21,52 +22,103 @@ using namespace CORE;
 using namespace SYSTEM;
 using namespace GRAPHICS;
 // lets pop a window and use Vulkan to clear to a red screen
-void HelperParse()
-{
-	ifstream file("../GameLevel.txt");
-	string strng;
-	vector<string> Length_Lines;
-	vector<string> mesh;
-	vector<string> Lights;
-	vector<string> Camera;
+//GW::MATH::GMATRIXF Getdata(ifstream& f, GW::MATH::GMATRIXF& g);
 
-	if (!file)
-	{
-		cerr << "Error: Error: Can't load file. Error" << endl;
-		exit(1);
-	}
-	if (file.is_open())
-	{
-		while (getline(file, strng))
-		{
-			Length_Lines.push_back(strng);
-		}
-		for (size_t i = 0; i < Length_Lines.size(); i++)
-		{
-			if (Length_Lines[i] == "MESH")
-			{
-				for (size_t j = 0; j < 6; j++)
-				{
-					mesh.push_back(Length_Lines[i + j]);
-					cerr << Length_Lines[i + j] << endl;
-				}
-			}
-		}
-	}
-	file.close();
-};
+//void Helper_Parse()
+//{
+//    std::ifstream game("../GameLevel.txt");
+//    std::vector<std::string> names;
+//    GW::MATH::GMATRIXF world[29];
+//    int count = 0;
+//
+//    if (!game)
+//    {
+//        cerr << "Error: Error: Can't load file. Error" << std::endl;
+//        exit(1);
+//    }
+//    if (game.is_open())
+//    {
+//        while (!game.eof())
+//        {
+//            char Buffer[128];
+//
+//            game.getline(Buffer, 128);
+//
+//            if (strcmp(Buffer, "MESH") == 0)
+//            {
+//                game.getline(Buffer, 128);
+//                names.push_back(Buffer);
+//                world[count] = Getdata(game, world[count]);
+//                cerr << names[count] << endl;
+//                count++;
+//            }
+//        }
+//    }
+//    game.close();
+//}
+
+//GW::MATH::GMATRIXF Getdata(ifstream& f, GW::MATH::GMATRIXF& g)
+//{
+//    char buff[128];
+//
+//    //row 1
+//    f.getline(buff, 128, '(');
+//    f.getline(buff, 128, ',');
+//    g.row1.x = stof(buff); //x_pos
+//    f.getline(buff, 128, ',');
+//    g.row1.y = stof(buff); //y_pos
+//    f.getline(buff, 128, ',');
+//    g.row1.z = stof(buff); //z_pos
+//    f.getline(buff, 128, ')');
+//    g.row1.w = stof(buff);
+//
+//    //row 2
+//    f.getline(buff, 128, '(');
+//    f.getline(buff, 128, ',');
+//    g.row2.x = stof(buff); //x_pos
+//    f.getline(buff, 128, ',');
+//    g.row2.y = stof(buff); //y_pos
+//    f.getline(buff, 128, ',');
+//    g.row2.z = stof(buff); //z_pos
+//    f.getline(buff, 128, ')');
+//    g.row2.w = stof(buff);
+//
+//    //row 3
+//    f.getline(buff, 128, '(');
+//    f.getline(buff, 128, ',');
+//    g.row3.x = stof(buff); //x__pos
+//    f.getline(buff, 128, ',');
+//    g.row3.y = stof(buff); //y_pos
+//    f.getline(buff, 128, ',');
+//    g.row3.z = stof(buff); //z_pos
+//    f.getline(buff, 128, ')');
+//    g.row3.w = stof(buff);
+//
+//    //row 4
+//    f.getline(buff, 128, '(');
+//    f.getline(buff, 128, ',');
+//    g.row4.x = stof(buff); //x_pos
+//    f.getline(buff, 128, ',');
+//    g.row4.y = stof(buff); //y_pos
+//    f.getline(buff, 128, ',');
+//    g.row4.z = stof(buff); //z_pos
+//    f.getline(buff, 128, ')');
+//    g.row4.w = stof(buff);
+//    return g;
+//}
+
 int main()
 {
 	GWindow win;
 	GEventResponder msgs;
 	GVulkanSurface vulkan;
-	HelperParse();
+	//Helper_Parse();
 	if (+win.Create(0, 0, 800, 600, GWindowStyle::WINDOWEDBORDERED))
 	{
 		// TODO: Part 1a
 		win.SetWindowName("Simon Alzate - Level Renderer");
 		VkClearValue clrAndDepth[2];
-		clrAndDepth[0].color = { {0, 0, 0, 1} };
+		clrAndDepth[0].color = { {1, 1, 1, 1} };
 		clrAndDepth[1].depthStencil = { 1.0f, 0u };
 		msgs.Create([&](const GW::GEvent& e) {
 			GW::SYSTEM::GWindow::Events q;

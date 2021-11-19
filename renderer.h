@@ -2,7 +2,6 @@
 // TODO: Part 1b
 #include "FSLogo.h"
 #include "h2bParser.h"
-#include "Blacksmith.h"
 #include <vector>
 #include "shaderc/shaderc.h" // needed for compiling shaders at runtime
 #ifdef _WIN32 // must use MT platform DLL libraries on windows
@@ -17,6 +16,7 @@ const char* vertexShaderSource = R"(
 cbuffer MESH_INDEX
 {
     uint meshid; 
+	matrix modelid[1024];
 };
 
 // an ultra simple hlsl vertex shader
@@ -88,6 +88,7 @@ const char* pixelShaderSource = R"(
 cbuffer MESH_INDEX
 {
     uint meshid; 
+	matrix modelid[1024];
 };
 struct OBJ_ATTRIBUTES
 {
@@ -155,6 +156,10 @@ float4 main(OBJ_VERT_OUT inputVertex) : SV_TARGET
 )";
 using namespace std;
 using namespace GW;
+std::vector<std::string> names;
+GW::MATH::GMATRIXF world[28];
+void Helper_Parse();
+GW::MATH::GMATRIXF Getdata(ifstream& f, GW::MATH::GMATRIXF& g);
 struct logoVertex
 {
 	float x, y, z;
@@ -165,7 +170,6 @@ struct logoVertex
 class Renderer
 {
 	// TODO: Part 2b
-	
 	// proxy handles
 	SYSTEM::GWindow win;
 	GRAPHICS::GVulkanSurface vlk;
@@ -173,11 +177,11 @@ class Renderer
 
 	// what we need at a minimum to draw a triangle
 	VkDevice device = nullptr;
-	VkBuffer vertexHandle = nullptr;
-	VkDeviceMemory vertexData = nullptr;
+	//VkBuffer vertexHandle = nullptr;
+	//VkDeviceMemory vertexData = nullptr;
 	// TODO: Part 1g
-	VkBuffer vertexHandle2 = nullptr;
-	VkDeviceMemory vertexData2 = nullptr;
+	//VkBuffer vertexHandle2 = nullptr;
+	//VkDeviceMemory vertexData2 = nullptr;
 	// TODO: Part 2c
 	VkShaderModule vertexShader = nullptr;
 	VkShaderModule pixelShader = nullptr;
@@ -210,6 +214,12 @@ class Renderer
 	MATH::GVECTORF lightColor;
 	MATH::GVector proxy2;
 	MATH::GMATRIXF worldCamera;
+	AUDIO::GAudio audio;
+	AUDIO::GMusic music;
+	AUDIO::GAudio sfaudio;
+	AUDIO::GMusic sfmusic;
+
+	int modelAmount = 6;
 	// TODO: Part 2b
 #define MAX_SUBMESH_PER_DRAW 1024
 	struct SHADER_MODEL_DATA
@@ -219,35 +229,56 @@ class Renderer
 		MATH::GMATRIXF matrices[MAX_SUBMESH_PER_DRAW];
 		H2B::ATTRIBUTES materials[MAX_SUBMESH_PER_DRAW];
 	};
+	struct DATA_MODEL
+	{
+		H2B::Parser parseH2B;
+
+		std::vector<H2B::MESH> meshes;
+		unsigned meshCount;
+		std::vector<H2B::MATERIAL> materials;
+		unsigned materialCount;
+		std::vector<unsigned> indices;
+		unsigned indexCount;
+		unsigned indexOffset;
+		std::vector<H2B::VERTEX> vertices;
+		unsigned vertexCount;
+
+		VkBuffer vertexHandle = nullptr;
+		VkDeviceMemory vertexData2 = nullptr;
+		VkBuffer vertexHandle2 = nullptr;
+		VkDeviceMemory vertexData = nullptr;
+
+		GW::MATH::GMATRIXF worldM = GW::MATH::GIdentityMatrixF;
+	};
 	struct MyStruct
 	{
-		char version[4];
-		unsigned vertexCount;
-		unsigned indexCount;
-		unsigned materialCount;
-		unsigned meshCount;
-		std::vector<H2B::VERTEX> vertices;
-		std::vector<unsigned> indices;
-		std::vector<H2B::MATERIAL> materials;
-		std::vector<H2B::BATCH> batches;
-		std::vector<H2B::MESH> meshes;
+		int ID;
+		GW::MATH::GMATRIXF worldMatrix[MAX_SUBMESH_PER_DRAW];
 	};
-	//Array that stores data from the models
 	// TODO: Part 4g
 public:
 
-	SHADER_MODEL_DATA modelData;
-	H2B::Parser parse;
+	SHADER_MODEL_DATA infoModel;
+	DATA_MODEL dataModel[100];
+	MyStruct temp;
 
 	Renderer(GW::SYSTEM::GWindow _win, GW::GRAPHICS::GVulkanSurface _vlk)
 	{
-		parse.Parse("../Blacksmith.h2b");
+		Helper_Parse();
+		audio.Create();
+		music.Create("../Bicycle Pokemon HGSS.wav", audio, 0.01);
+		audio.PlayMusic();
+		dataModel[0].parseH2B.Parse("../Platform_BottomLeft.h2b");
+		dataModel[1].parseH2B.Parse("../Platform_BottomMiddle.h2b");
+		dataModel[2].parseH2B.Parse("../Platform_BottomRight.h2b");
+		dataModel[3].parseH2B.Parse("../Platform_TopLeft.h2b");
+		dataModel[4].parseH2B.Parse("../Platform_TopMiddle.h2b");
+		dataModel[5].parseH2B.Parse("../Platform_TopRight.h2b");
+		//dataModel[3].parseH2B.Parse("../Platform_BottomLeft.h2b");
+		//dataModel[4].parseH2B.Parse("../Platform_BottomMiddle.h2b");
+		//dataModel[5].parseH2B.Parse("../Platform_BottomRight.h2b");
 		win = _win;
 		vlk = _vlk;
-		for (size_t i = 0; i < 1 /*Array Size*/; i++)
-		{
-			//set array values :)
-		}
 		unsigned int width, height;
 		win.GetClientWidth(width);
 		win.GetClientHeight(height);
@@ -257,7 +288,6 @@ public:
 		GController.Create();
 		proxy.IdentityF(worldMatrix);
 		proxy.IdentityF(viewMatrix);
-
 		MATH::GVECTORF eye1 = { 0.75f, 0.25f, -1.5f, 1 };
 		MATH::GVECTORF at1 = { 0.15f, 0.75f, 0, 1 };
 		MATH::GVECTORF up1 = { 0, 1, 0, 1 };
@@ -267,7 +297,6 @@ public:
 		proxy.IdentityF(perspectiveLeftMtrx);
 		vlk.GetAspectRatio(aspectRatio);
 		proxy.ProjectionVulkanLHF(1.134, aspectRatio, 0.1f, 100, perspectiveLeftMtrx);
-		//proxy.MultiplyMatrixF(matrixOfView2, perspectiveLeftMtrx, viewAndPerspective);
 
 		MATH::GVECTORF direction = { -1, -1, 2, 1 };
 
@@ -276,14 +305,12 @@ public:
 		proxy2.NormalizeF(direction, direction);
 		// TODO: Part 2b
 
-		modelData.matrices[1] = worldMatrix;
-		modelData.view_matrix = viewMatrix;
-		modelData.projectionMatrix = perspectiveLeftMtrx;
-		modelData.sunColor = color;
-		modelData.sunDir = direction;
-		modelData.materials[0] = parse.materials[0].attrib;
-		modelData.camWorldPos = worldCamera.row4;
-		//modelData.materials[0] = parse.materials[0].attrib;
+		infoModel.matrices[1] = worldMatrix;
+		infoModel.view_matrix = viewMatrix;
+		infoModel.projectionMatrix = perspectiveLeftMtrx;
+		infoModel.sunColor = color;
+		infoModel.sunDir = direction;
+		infoModel.camWorldPos = worldCamera.row4;
 
 		// TODO: Part 4g
 		// TODO: part 3b
@@ -296,68 +323,47 @@ public:
 
 		// TODO: Part 1c
 		// Create Vertex Buffer
+		//logoVertex fsLogo[12766];
 
-
-		logoVertex fsLogo[12766];
-
-		for (unsigned i = 0; i < 12766; i++) //3885
+		for (size_t j = 0; j < modelAmount; j++)
 		{
-			//fsLogo[i].x = FSLogo_vertices[i].pos.x;
-			//fsLogo[i].y = FSLogo_vertices[i].pos.y;
-			//fsLogo[i].z = FSLogo_vertices[i].pos.z;
 
-			//fsLogo[i].UVx = FSLogo_vertices[i].uvw.x;
-			//fsLogo[i].UVy = FSLogo_vertices[i].uvw.y;
-			//fsLogo[i].UVz = FSLogo_vertices[i].uvw.z;
+			dataModel[j].vertexCount = dataModel[j].parseH2B.vertexCount;
+			dataModel[j].indexCount = dataModel[j].parseH2B.indexCount;
+			dataModel[j].meshCount = dataModel[j].parseH2B.meshCount;
+			dataModel[j].materialCount = dataModel[j].parseH2B.materialCount;
 
-			//fsLogo[i].x_norm = FSLogo_vertices[i].nrm.x;
-			//fsLogo[i].y_norm = FSLogo_vertices[i].nrm.y;
-			//fsLogo[i].z_norm = FSLogo_vertices[i].nrm.z;
+			for (int i = 0; i < dataModel[j].parseH2B.vertices.size(); i++)
+				dataModel[j].vertices.push_back(dataModel[j].parseH2B.vertices[i]);
+			for (int i = 0; i < dataModel[j].parseH2B.indices.size(); i++)
+				dataModel[j].indices.push_back(dataModel[j].parseH2B.indices[i]);
+			for (int i = 0; i < dataModel[j].parseH2B.materials.size(); i++)
+				dataModel[j].materials.push_back(dataModel[j].parseH2B.materials[i]);
+			for (int i = 0; i < dataModel[j].parseH2B.meshes.size(); i++)
+				dataModel[j].meshes.push_back(dataModel[j].parseH2B.meshes[i]);
 
-			/*fsLogo[i].x = Blacksmith_vertices[i].pos.x;
-			fsLogo[i].y = Blacksmith_vertices[i].pos.y;
-			fsLogo[i].z = Blacksmith_vertices[i].pos.z;
 
-			fsLogo[i].UVx = Blacksmith_vertices[i].uvw.x;
-			fsLogo[i].UVy = Blacksmith_vertices[i].uvw.y;
-			fsLogo[i].UVz = Blacksmith_vertices[i].uvw.z;
-
-			fsLogo[i].x_norm = Blacksmith_vertices[i].nrm.x;
-			fsLogo[i].y_norm = Blacksmith_vertices[i].nrm.y;
-			fsLogo[i].z_norm = Blacksmith_vertices[i].nrm.z;*/
-
-			fsLogo[i].x = parse.vertices[i].pos.x;
-			fsLogo[i].y = parse.vertices[i].pos.y;
-			fsLogo[i].z = parse.vertices[i].pos.z;
-
-			fsLogo[i].UVx = parse.vertices[i].uvw.x;
-			fsLogo[i].UVy = parse.vertices[i].uvw.y;
-			fsLogo[i].UVz = parse.vertices[i].uvw.z;
-
-			fsLogo[i].x_norm = parse.vertices[i].nrm.x;
-			fsLogo[i].y_norm = parse.vertices[i].nrm.y;
-			fsLogo[i].z_norm = parse.vertices[i].nrm.z;
 		}
+		for (size_t j = 0; j < modelAmount; j++)
+		{
+			proxy.IdentityF(dataModel[j].worldM);
 
-		/*for (size_t i = 0; i < FSLogo_materialcount; i++)
-		{
-			modelData.materials[i] = FSLogo_materials[i].attrib;
-		}*/
-		for (size_t i = 0; i < parse.materialCount; i++)
-		{
-			modelData.materials[i] = parse.materials[i].attrib;
+			dataModel[j].worldM.row1 = world[j].row1;
+			dataModel[j].worldM.row2 = world[j].row2;
+			dataModel[j].worldM.row3 = world[j].row3;
+			dataModel[j].worldM.row4 = world[j].row4;
+
+			for (size_t i = 0; i < dataModel[j].materialCount; i++)
+			{
+				infoModel.materials[i] = dataModel[j].materials[i].attrib;
+				infoModel.matrices[i] = worldMatrix;
+			}
 		}
+		//for (size_t i = 0; i < dataModel[i].parseH2B.materialCount; i++)
+		//{
+		//	infoModel.materials[i] = dataModel[i].parseH2B.materials[i].attrib;
+		//}
 		// Transfer triangle data to the vertex buffer. (staging would be prefered here)
-
-		//GvkHelper::create_buffer(physicalDevice, device, sizeof(FSLogo_vertices),
-		//	VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-		//	VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &vertexHandle, &vertexData);
-		//GvkHelper::write_to_buffer(device, vertexData, FSLogo_vertices, sizeof(FSLogo_vertices));
-		//// TODO: Part 1g
-		//GvkHelper::create_buffer(physicalDevice, device, sizeof(FSLogo_indices),
-		//	VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-		//	VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &vertexHandle2, &vertexData2);
-		//GvkHelper::write_to_buffer(device, vertexData2, FSLogo_indices, sizeof(FSLogo_indices));
 		//GvkHelper::create_buffer(physicalDevice, device, sizeof(parse.vertices),
 		//	VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
 		//	VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &vertexHandle, &vertexData);
@@ -367,15 +373,29 @@ public:
 		//	VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
 		//	VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &vertexHandle2, &vertexData2);
 		//GvkHelper::write_to_buffer(device, vertexData2, Blacksmith_indices, sizeof(parse.indices));
-		GvkHelper::create_buffer(physicalDevice, device, sizeof(Blacksmith_vertices),
-			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-			VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &vertexHandle, &vertexData);
-		GvkHelper::write_to_buffer(device, vertexData, Blacksmith_vertices, sizeof(Blacksmith_vertices));
-		// TODO: Part 1g
-		GvkHelper::create_buffer(physicalDevice, device, sizeof(Blacksmith_indices),
-			VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-			VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &vertexHandle2, &vertexData2);
-		GvkHelper::write_to_buffer(device, vertexData2, Blacksmith_indices, sizeof(Blacksmith_indices));
+		for (size_t j = 0; j < modelAmount; j++)
+		{
+			
+			// Transfer triangle data to the vertex buffer. (staging would be prefered here)
+			GvkHelper::create_buffer(physicalDevice, device, sizeof(H2B::VERTEX) * dataModel[j].vertexCount,
+				VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+				VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &dataModel[j].vertexHandle, &dataModel[j].vertexData);
+			GvkHelper::write_to_buffer(device, dataModel[j].vertexData, dataModel[j].vertices.data(), sizeof(H2B::VERTEX) * dataModel[j].vertexCount);
+			// TODO: Part 1g
+			GvkHelper::create_buffer(physicalDevice, device, sizeof(unsigned) * dataModel[j].indexCount,
+				VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+				VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &dataModel[j].vertexHandle2, &dataModel[j].vertexData2);
+			GvkHelper::write_to_buffer(device, dataModel[j].vertexData2, dataModel[j].indices.data(), sizeof(unsigned) * dataModel[j].indexCount);
+		}
+		//GvkHelper::create_buffer(physicalDevice, device, sizeof(Blacksmith_vertices),
+		//	VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+		//	VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &vertexHandle, &vertexData);
+		//GvkHelper::write_to_buffer(device, vertexData, Blacksmith_vertices, sizeof(Blacksmith_vertices));
+		//// TODO: Part 1g
+		//GvkHelper::create_buffer(physicalDevice, device, sizeof(Blacksmith_indices),
+		//	VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+		//	VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &vertexHandle2, &vertexData2);
+		//GvkHelper::write_to_buffer(device, vertexData2, Blacksmith_indices, sizeof(Blacksmith_indices));
 		// TODO: Part 2d
 		unsigned max_frames = 0;
 		// to avoid per-frame resource sharing issues we give each "in-flight" frame its own buffer
@@ -387,7 +407,7 @@ public:
 			GvkHelper::create_buffer(physicalDevice, device, sizeof(SHADER_MODEL_DATA),
 				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
 				VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &handleStorage[i], &dataStorage[i]);
-			GvkHelper::write_to_buffer(device, dataStorage[i], &modelData, sizeof(SHADER_MODEL_DATA));
+			GvkHelper::write_to_buffer(device, dataStorage[i], &infoModel, sizeof(SHADER_MODEL_DATA));
 		}
 
 		/***************** SHADER INTIALIZATION ******************/
@@ -642,13 +662,19 @@ public:
 
 	void Update()
 	{
-		for (int i = 0; i < MAX_SUBMESH_PER_DRAW; i++)
+		/*for (int i = 0; i < MAX_SUBMESH_PER_DRAW; i++)
 		{
-			MATH::GMatrix::RotateYLocalF(modelData.matrices[i], 0.0003f, modelData.matrices[i]);
-		}
+			MATH::GMatrix::RotateYLocalF(infoModel.matrices[i], 0.0003f, infoModel.matrices[i]);
+		}*/
 		unsigned int currentBuffer;
 		vlk.GetSwapchainCurrentImage(currentBuffer);
-		GvkHelper::write_to_buffer(device, dataStorage[currentBuffer], &modelData, sizeof(SHADER_MODEL_DATA));
+		GvkHelper::write_to_buffer(device, dataStorage[currentBuffer], &infoModel, sizeof(SHADER_MODEL_DATA));
+		if (GetAsyncKeyState('F'))
+		{
+			sfaudio.Create();
+			sfmusic.Create("../What the dog doin.wav", sfaudio, 0.02);
+			sfaudio.PlayMusic();
+		}
 	}
 
 	void Render()
@@ -657,7 +683,7 @@ public:
 		//SHADER_VARS worldT;
 		//worldT.view_Matrix = viewAndPerspective;
 
-		modelData.matrices[0] = worldMatrix;
+		infoModel.matrices[0] = worldMatrix;
 		// TODO: Part 4d
 		// grab the current Vulkan commandBuffer
 		unsigned int currentBuffer;
@@ -683,16 +709,30 @@ public:
 		vlk.GetAspectRatio(aspectRatio);
 		proxy.ProjectionVulkanLHF(1.134, aspectRatio, 0.1f, 100, perspectiveLeftMtrx);
 		
-		modelData.view_matrix = viewMatrix;
+		infoModel.view_matrix = viewMatrix;
 
-		GvkHelper::write_to_buffer(device, dataStorage[currentBuffer], &modelData, sizeof(SHADER_MODEL_DATA));
-		// TODO: Part 2i
+		GvkHelper::write_to_buffer(device, dataStorage[0], &infoModel, sizeof(infoModel));
 		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &setDescriptor[currentBuffer], 0, nullptr);
+		// TODO: Part 2i
+		//vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &setDescriptor[currentBuffer], 0, nullptr);
 		// now we can draw
 		VkDeviceSize offsets[] = { 0 };
-		vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexHandle, offsets);
+		for (size_t j = 0; j < modelAmount; j++)
+		{
+			vkCmdBindVertexBuffers(commandBuffer, 0, 1, &dataModel[j].vertexHandle, offsets);
+			vkCmdBindIndexBuffer(commandBuffer, dataModel[j].vertexHandle2, *offsets, VK_INDEX_TYPE_UINT32);
+			temp.worldMatrix[j] = dataModel[j].worldM;
+			for (size_t i = 0; i < dataModel[j].materialCount; i++)
+			{
+
+				temp.ID = dataModel[j].meshes[i].materialIndex;
+				vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(unsigned), &temp);
+				vkCmdDrawIndexed(commandBuffer, dataModel[j].meshes[i].drawInfo.indexCount, 1, dataModel[j].meshes[i].drawInfo.indexOffset, 0, 0);
+			}
+		}
+		//vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexHandle, offsets);
 		// TODO: Part 1h
-		vkCmdBindIndexBuffer(commandBuffer, vertexHandle2, *offsets, VK_INDEX_TYPE_UINT32);
+		//vkCmdBindIndexBuffer(commandBuffer, vertexHandle2, *offsets, VK_INDEX_TYPE_UINT32);
 		// TODO: Part 4d
 		// TODO: Part 3b
 			// TODO: Part 3d
@@ -702,11 +742,11 @@ public:
 			vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(unsigned), &i);
 			vkCmdDrawIndexed(commandBuffer, FSLogo_meshes[i].indexCount, 1, FSLogo_meshes[i].indexOffset, 0, 0);
 		}*/
-		for (unsigned int i = 0; i < Blacksmith_meshcount; i++)
-		{
-			vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(unsigned), &i);
-			vkCmdDrawIndexed(commandBuffer, Blacksmith_meshes[i].indexCount, 1, Blacksmith_meshes[i].indexOffset, 0, 0);
-		}
+		//for (unsigned int i = 0; i < Blacksmith_meshcount; i++)
+		//{
+		//	vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(unsigned), &i);
+		//	vkCmdDrawIndexed(commandBuffer, Blacksmith_meshes[i].indexCount, 1, Blacksmith_meshes[i].indexOffset, 0, 0);
+		//}
 	}
 	void UpdateCamera()
 	{
@@ -733,7 +773,7 @@ public:
 		GInput.GetState(14, left_Shift);
 		GController.GetState(0, 7, rightT);
 		GController.GetState(0, 6, leftT);
-		totalY = space_bar - leftT + rightT - leftT;
+		totalY = space_bar - left_Shift + rightT - leftT;
 		//// TODO: Part 4e
 		float W;
 		float S;
@@ -784,11 +824,11 @@ private:
 		vkDeviceWaitIdle(device);
 		// Release allocated buffers, shaders & pipeline
 		// TODO: Part 1g
-		vkDestroyBuffer(device, vertexHandle, nullptr);
-		vkFreeMemory(device, vertexData, nullptr);
-		
-		vkDestroyBuffer(device, vertexHandle2, nullptr);
-		vkFreeMemory(device, vertexData2, nullptr);
+		//vkDestroyBuffer(device, vertexHandle, nullptr);
+		//vkFreeMemory(device, vertexData, nullptr);
+		//
+		//vkDestroyBuffer(device, vertexHandle2, nullptr);
+		//vkFreeMemory(device, vertexData2, nullptr);
 		
 		vkDestroyShaderModule(device, vertexShader, nullptr);
 		vkDestroyShaderModule(device, pixelShader, nullptr);
@@ -802,8 +842,95 @@ private:
 		}
 		// TODO: Part 2d
 		// TODO: Part 2e
+		for (size_t i = 0; i < modelAmount; i++)
+		{
+			vkDestroyBuffer(device, dataModel[i].vertexHandle, nullptr);
+			vkFreeMemory(device, dataModel[i].vertexData, nullptr);
+			vkDestroyBuffer(device, dataModel[i].vertexHandle2, nullptr);
+			vkFreeMemory(device, dataModel[i].vertexData2, nullptr);
+		}
 		// TODO: part 2f
 		vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
 		vkDestroyPipeline(device, pipeline, nullptr);
 	}
 };
+void Helper_Parse()
+{
+	std::ifstream game("../GameLevel.txt");
+	int count = 0;
+
+	if (!game)
+	{
+		cerr << "Error: Error: Can't load file. Error" << std::endl;
+		exit(1);
+	}
+	if (game.is_open())
+	{
+		while (!game.eof())
+		{
+			char Buffer[128];
+
+			game.getline(Buffer, 128);
+
+			if (strcmp(Buffer, "MESH") == 0)
+			{
+				game.getline(Buffer, 128);
+				names.push_back(Buffer);
+				world[count] = Getdata(game, world[count]);
+				cerr << names[count] << endl;
+				count++;
+			}
+		}
+	}
+	game.close();
+}
+
+GW::MATH::GMATRIXF Getdata(ifstream& f, GW::MATH::GMATRIXF& g)
+{
+	char buff[128];
+
+	//row 1
+	f.getline(buff, 128, '(');
+	f.getline(buff, 128, ',');
+	g.row1.x = stof(buff); //x_pos
+	f.getline(buff, 128, ',');
+	g.row1.y = stof(buff); //y_pos
+	f.getline(buff, 128, ',');
+	g.row1.z = stof(buff); //z_pos
+	f.getline(buff, 128, ')');
+	g.row1.w = stof(buff);
+
+	//row 2
+	f.getline(buff, 128, '(');
+	f.getline(buff, 128, ',');
+	g.row2.x = stof(buff); //x_pos
+	f.getline(buff, 128, ',');
+	g.row2.y = stof(buff); //y_pos
+	f.getline(buff, 128, ',');
+	g.row2.z = stof(buff); //z_pos
+	f.getline(buff, 128, ')');
+	g.row2.w = stof(buff);
+
+	//row 3
+	f.getline(buff, 128, '(');
+	f.getline(buff, 128, ',');
+	g.row3.x = stof(buff); //x__pos
+	f.getline(buff, 128, ',');
+	g.row3.y = stof(buff); //y_pos
+	f.getline(buff, 128, ',');
+	g.row3.z = stof(buff); //z_pos
+	f.getline(buff, 128, ')');
+	g.row3.w = stof(buff);
+
+	//row 4
+	f.getline(buff, 128, '(');
+	f.getline(buff, 128, ',');
+	g.row4.x = stof(buff); //x_pos
+	f.getline(buff, 128, ',');
+	g.row4.y = stof(buff); //y_pos
+	f.getline(buff, 128, ',');
+	g.row4.z = stof(buff); //z_pos
+	f.getline(buff, 128, ')');
+	g.row4.w = stof(buff);
+	return g;
+}
