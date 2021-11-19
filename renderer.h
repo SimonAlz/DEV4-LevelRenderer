@@ -1,6 +1,5 @@
 // minimalistic code to draw a single triangle, this is not part of the API.
 // TODO: Part 1b
-#include "FSLogo.h"
 #include "h2bParser.h"
 #include <vector>
 #include "shaderc/shaderc.h" // needed for compiling shaders at runtime
@@ -219,7 +218,7 @@ class Renderer
 	AUDIO::GAudio sfaudio;
 	AUDIO::GMusic sfmusic;
 
-	int modelAmount = 6;
+	int modelAmount = 28;
 	// TODO: Part 2b
 #define MAX_SUBMESH_PER_DRAW 1024
 	struct SHADER_MODEL_DATA
@@ -266,7 +265,7 @@ public:
 	{
 		Helper_Parse();
 		audio.Create();
-		music.Create("../Bicycle Pokemon HGSS.wav", audio, 0.01);
+		music.Create("../Bicycle Pokemon HGSS.wav", audio, 0.05);
 		audio.PlayMusic();
 		dataModel[0].parseH2B.Parse("../Platform_BottomLeft.h2b");
 		dataModel[1].parseH2B.Parse("../Platform_BottomMiddle.h2b");
@@ -274,9 +273,28 @@ public:
 		dataModel[3].parseH2B.Parse("../Platform_TopLeft.h2b");
 		dataModel[4].parseH2B.Parse("../Platform_TopMiddle.h2b");
 		dataModel[5].parseH2B.Parse("../Platform_TopRight.h2b");
-		//dataModel[3].parseH2B.Parse("../Platform_BottomLeft.h2b");
-		//dataModel[4].parseH2B.Parse("../Platform_BottomMiddle.h2b");
-		//dataModel[5].parseH2B.Parse("../Platform_BottomRight.h2b");
+		dataModel[6].parseH2B.Parse("../Tree1.h2b");
+		dataModel[7].parseH2B.Parse("../Cloud1.h2b");
+		dataModel[8].parseH2B.Parse("../Rock3.h2b");
+		dataModel[9].parseH2B.Parse("../Grass.h2b");
+		dataModel[10].parseH2B.Parse("../Grass.h2b");
+		dataModel[11].parseH2B.Parse("../Grass.h2b");
+		dataModel[12].parseH2B.Parse("../Grass.h2b");
+		dataModel[13].parseH2B.Parse("../Grass.h2b");
+		dataModel[14].parseH2B.Parse("../Grass.h2b");
+		dataModel[15].parseH2B.Parse("../Grass.h2b");
+		dataModel[16].parseH2B.Parse("../Grass.h2b");
+		dataModel[17].parseH2B.Parse("../Grass.h2b");
+		dataModel[18].parseH2B.Parse("../Grass.h2b");
+		dataModel[19].parseH2B.Parse("../Chest_gold.h2b");
+		dataModel[20].parseH2B.Parse("../Potion2.h2b");
+		dataModel[21].parseH2B.Parse("../Barrel.h2b");
+		dataModel[22].parseH2B.Parse("../Crate.h2b");
+		dataModel[23].parseH2B.Parse("../Fence.h2b");
+		dataModel[24].parseH2B.Parse("../Sign_Left.h2b");
+		dataModel[25].parseH2B.Parse("../Cloud1.h2b");
+		dataModel[26].parseH2B.Parse("../Tree1.h2b");
+		dataModel[27].parseH2B.Parse("../Rock3.h2b");
 		win = _win;
 		vlk = _vlk;
 		unsigned int width, height;
@@ -314,17 +332,6 @@ public:
 
 		// TODO: Part 4g
 		// TODO: part 3b
-
-		/***************** GEOMETRY INTIALIZATION ******************/
-		// Grab the device & physical device so we can allocate some stuff
-		VkPhysicalDevice physicalDevice = nullptr;
-		vlk.GetDevice((void**)&device);
-		vlk.GetPhysicalDevice((void**)&physicalDevice);
-
-		// TODO: Part 1c
-		// Create Vertex Buffer
-		//logoVertex fsLogo[12766];
-
 		for (size_t j = 0; j < modelAmount; j++)
 		{
 
@@ -352,6 +359,9 @@ public:
 			dataModel[j].worldM.row2 = world[j].row2;
 			dataModel[j].worldM.row3 = world[j].row3;
 			dataModel[j].worldM.row4 = world[j].row4;
+			proxy.RotateXGlobalF(dataModel[j].worldM, G2D_DEGREE_TO_RADIAN(90.0), dataModel[j].worldM);
+			proxy.ScaleGlobalF(dataModel[j].worldM, world[j].row1, dataModel[j].worldM);
+			proxy.TranslateGlobalF(dataModel[j].worldM, world[j].row4, dataModel[j].worldM);
 
 			for (size_t i = 0; i < dataModel[j].materialCount; i++)
 			{
@@ -359,23 +369,20 @@ public:
 				infoModel.matrices[i] = worldMatrix;
 			}
 		}
-		//for (size_t i = 0; i < dataModel[i].parseH2B.materialCount; i++)
-		//{
-		//	infoModel.materials[i] = dataModel[i].parseH2B.materials[i].attrib;
-		//}
-		// Transfer triangle data to the vertex buffer. (staging would be prefered here)
-		//GvkHelper::create_buffer(physicalDevice, device, sizeof(parse.vertices),
-		//	VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-		//	VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &vertexHandle, &vertexData);
-		//GvkHelper::write_to_buffer(device, vertexData, Blacksmith_vertices, sizeof(parse.vertices));
-		//// TODO: Part 1g
-		//GvkHelper::create_buffer(physicalDevice, device, sizeof(parse.indices),
-		//	VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-		//	VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &vertexHandle2, &vertexData2);
-		//GvkHelper::write_to_buffer(device, vertexData2, Blacksmith_indices, sizeof(parse.indices));
+		for (size_t i = 0; i < dataModel[i].parseH2B.materialCount; i++)
+		{
+			infoModel.materials[i] = dataModel[i].parseH2B.materials[i].attrib;
+		}
+		/***************** GEOMETRY INTIALIZATION ******************/
+		// Grab the device & physical device so we can allocate some stuff
+		VkPhysicalDevice physicalDevice = nullptr;
+		vlk.GetDevice((void**)&device);
+		vlk.GetPhysicalDevice((void**)&physicalDevice);
+
+		// TODO: Part 1c
+		// Create Vertex Buffer
 		for (size_t j = 0; j < modelAmount; j++)
 		{
-			
 			// Transfer triangle data to the vertex buffer. (staging would be prefered here)
 			GvkHelper::create_buffer(physicalDevice, device, sizeof(H2B::VERTEX) * dataModel[j].vertexCount,
 				VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
@@ -387,15 +394,6 @@ public:
 				VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &dataModel[j].vertexHandle2, &dataModel[j].vertexData2);
 			GvkHelper::write_to_buffer(device, dataModel[j].vertexData2, dataModel[j].indices.data(), sizeof(unsigned) * dataModel[j].indexCount);
 		}
-		//GvkHelper::create_buffer(physicalDevice, device, sizeof(Blacksmith_vertices),
-		//	VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-		//	VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &vertexHandle, &vertexData);
-		//GvkHelper::write_to_buffer(device, vertexData, Blacksmith_vertices, sizeof(Blacksmith_vertices));
-		//// TODO: Part 1g
-		//GvkHelper::create_buffer(physicalDevice, device, sizeof(Blacksmith_indices),
-		//	VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-		//	VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &vertexHandle2, &vertexData2);
-		//GvkHelper::write_to_buffer(device, vertexData2, Blacksmith_indices, sizeof(Blacksmith_indices));
 		// TODO: Part 2d
 		unsigned max_frames = 0;
 		// to avoid per-frame resource sharing issues we give each "in-flight" frame its own buffer
@@ -404,10 +402,10 @@ public:
 		dataStorage.resize(max_frames);
 		for (int i = 0; i < max_frames; ++i) {
 
-			GvkHelper::create_buffer(physicalDevice, device, sizeof(SHADER_MODEL_DATA),
+			GvkHelper::create_buffer(physicalDevice, device, sizeof(infoModel),
 				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
 				VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &handleStorage[i], &dataStorage[i]);
-			GvkHelper::write_to_buffer(device, dataStorage[i], &infoModel, sizeof(SHADER_MODEL_DATA));
+			GvkHelper::write_to_buffer(device, dataStorage[i], &infoModel, sizeof(infoModel));
 		}
 
 		/***************** SHADER INTIALIZATION ******************/
@@ -672,7 +670,7 @@ public:
 		if (GetAsyncKeyState('F'))
 		{
 			sfaudio.Create();
-			sfmusic.Create("../What the dog doin.wav", sfaudio, 0.02);
+			sfmusic.Create("../What the dog doin.wav", sfaudio, 0.05);
 			sfaudio.PlayMusic();
 		}
 	}
@@ -683,7 +681,7 @@ public:
 		//SHADER_VARS worldT;
 		//worldT.view_Matrix = viewAndPerspective;
 
-		infoModel.matrices[0] = worldMatrix;
+		//infoModel.matrices[0] = worldMatrix;
 		// TODO: Part 4d
 		// grab the current Vulkan commandBuffer
 		unsigned int currentBuffer;
@@ -703,7 +701,7 @@ public:
 		vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 
-		worldCamera = viewMatrix;
+		//worldCamera = viewMatrix;
 		float aspectRatio;
 		proxy.IdentityF(perspectiveLeftMtrx);
 		vlk.GetAspectRatio(aspectRatio);
@@ -721,32 +719,15 @@ public:
 		{
 			vkCmdBindVertexBuffers(commandBuffer, 0, 1, &dataModel[j].vertexHandle, offsets);
 			vkCmdBindIndexBuffer(commandBuffer, dataModel[j].vertexHandle2, *offsets, VK_INDEX_TYPE_UINT32);
-			temp.worldMatrix[j] = dataModel[j].worldM;
 			for (size_t i = 0; i < dataModel[j].materialCount; i++)
 			{
 
+				temp.worldMatrix[j] = dataModel[j].worldM;
 				temp.ID = dataModel[j].meshes[i].materialIndex;
 				vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(unsigned), &temp);
 				vkCmdDrawIndexed(commandBuffer, dataModel[j].meshes[i].drawInfo.indexCount, 1, dataModel[j].meshes[i].drawInfo.indexOffset, 0, 0);
 			}
 		}
-		//vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexHandle, offsets);
-		// TODO: Part 1h
-		//vkCmdBindIndexBuffer(commandBuffer, vertexHandle2, *offsets, VK_INDEX_TYPE_UINT32);
-		// TODO: Part 4d
-		// TODO: Part 3b
-			// TODO: Part 3d
-		//vkCmdDraw(commandBuffer, 3885, MAX_SUBMESH_PER_DRAW, 0, 0); // TODO: Part 1d, 1h
-		/*for (unsigned int i = 0; i < FSLogo_meshcount; i++)
-		{
-			vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(unsigned), &i);
-			vkCmdDrawIndexed(commandBuffer, FSLogo_meshes[i].indexCount, 1, FSLogo_meshes[i].indexOffset, 0, 0);
-		}*/
-		//for (unsigned int i = 0; i < Blacksmith_meshcount; i++)
-		//{
-		//	vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(unsigned), &i);
-		//	vkCmdDrawIndexed(commandBuffer, Blacksmith_meshes[i].indexCount, 1, Blacksmith_meshes[i].indexOffset, 0, 0);
-		//}
 	}
 	void UpdateCamera()
 	{
@@ -824,12 +805,6 @@ private:
 		vkDeviceWaitIdle(device);
 		// Release allocated buffers, shaders & pipeline
 		// TODO: Part 1g
-		//vkDestroyBuffer(device, vertexHandle, nullptr);
-		//vkFreeMemory(device, vertexData, nullptr);
-		//
-		//vkDestroyBuffer(device, vertexHandle2, nullptr);
-		//vkFreeMemory(device, vertexData2, nullptr);
-		
 		vkDestroyShaderModule(device, vertexShader, nullptr);
 		vkDestroyShaderModule(device, pixelShader, nullptr);
 		// TODO: Part 2d
