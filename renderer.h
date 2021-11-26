@@ -673,6 +673,12 @@ public:
 			sfmusic.Create("../What the dog doin.wav", sfaudio, 0.05);
 			sfaudio.PlayMusic();
 		}
+		if (GetAsyncKeyState('J'))
+		{
+			audio.Create();
+			music.Create("../secondSong.wav", audio, 0.05);
+			audio.PlayMusic();
+		}
 	}
 
 	void Render()
