@@ -156,9 +156,10 @@ float4 main(OBJ_VERT_OUT inputVertex) : SV_TARGET
 using namespace std;
 using namespace GW;
 std::vector<std::string> names;
-GW::MATH::GMATRIXF world[28];
+GW::MATH::GMATRIXF objects[28];
 void Helper_Parse();
 GW::MATH::GMATRIXF Getdata(ifstream& f, GW::MATH::GMATRIXF& g);
+vector<std::string> changeNames(std::vector<std::string> nameVec);
 struct logoVertex
 {
 	float x, y, z;
@@ -234,7 +235,7 @@ class Renderer
 
 		std::vector<H2B::MESH> meshes;
 		unsigned meshCount;
-		std::vector<H2B::MATERIAL> materials;
+		std::vector<H2B::MATERIAL> material_vec;
 		unsigned materialCount;
 		std::vector<unsigned> indices;
 		unsigned indexCount;
@@ -264,37 +265,16 @@ public:
 	Renderer(GW::SYSTEM::GWindow _win, GW::GRAPHICS::GVulkanSurface _vlk)
 	{
 		Helper_Parse();
+		names = changeNames(names);
 		audio.Create();
 		music.Create("../Bicycle Pokemon HGSS.wav", audio, 0.05);
 		audio.PlayMusic();
-		dataModel[0].parseH2B.Parse("../Platform_BottomLeft.h2b");
-		dataModel[1].parseH2B.Parse("../Platform_BottomMiddle.h2b");
-		dataModel[2].parseH2B.Parse("../Platform_BottomRight.h2b");
-		dataModel[3].parseH2B.Parse("../Platform_TopLeft.h2b");
-		dataModel[4].parseH2B.Parse("../Platform_TopMiddle.h2b");
-		dataModel[5].parseH2B.Parse("../Platform_TopRight.h2b");
-		dataModel[6].parseH2B.Parse("../Tree1.h2b");
-		dataModel[7].parseH2B.Parse("../Cloud1.h2b");
-		dataModel[8].parseH2B.Parse("../Rock3.h2b");
-		dataModel[9].parseH2B.Parse("../Grass.h2b");
-		dataModel[10].parseH2B.Parse("../Grass.h2b");
-		dataModel[11].parseH2B.Parse("../Grass.h2b");
-		dataModel[12].parseH2B.Parse("../Grass.h2b");
-		dataModel[13].parseH2B.Parse("../Grass.h2b");
-		dataModel[14].parseH2B.Parse("../Grass.h2b");
-		dataModel[15].parseH2B.Parse("../Grass.h2b");
-		dataModel[16].parseH2B.Parse("../Grass.h2b");
-		dataModel[17].parseH2B.Parse("../Grass.h2b");
-		dataModel[18].parseH2B.Parse("../Grass.h2b");
-		dataModel[19].parseH2B.Parse("../Chest_gold.h2b");
-		dataModel[20].parseH2B.Parse("../Potion2.h2b");
-		dataModel[21].parseH2B.Parse("../Barrel.h2b");
-		dataModel[22].parseH2B.Parse("../Crate.h2b");
-		dataModel[23].parseH2B.Parse("../Fence.h2b");
-		dataModel[24].parseH2B.Parse("../Sign_Left.h2b");
-		dataModel[25].parseH2B.Parse("../Cloud1.h2b");
-		dataModel[26].parseH2B.Parse("../Tree1.h2b");
-		dataModel[27].parseH2B.Parse("../Rock3.h2b");
+		sfaudio.Create();
+		for (size_t i = 0; i < names.size(); i++)
+		{
+			dataModel[i].parseH2B.Parse(names[i].c_str());
+			//std::cout << names[i] << endl;
+		}
 		win = _win;
 		vlk = _vlk;
 		unsigned int width, height;
@@ -345,7 +325,7 @@ public:
 			for (int i = 0; i < dataModel[j].parseH2B.indices.size(); i++)
 				dataModel[j].indices.push_back(dataModel[j].parseH2B.indices[i]);
 			for (int i = 0; i < dataModel[j].parseH2B.materials.size(); i++)
-				dataModel[j].materials.push_back(dataModel[j].parseH2B.materials[i]);
+				dataModel[j].material_vec.push_back(dataModel[j].parseH2B.materials[i]);
 			for (int i = 0; i < dataModel[j].parseH2B.meshes.size(); i++)
 				dataModel[j].meshes.push_back(dataModel[j].parseH2B.meshes[i]);
 
@@ -355,17 +335,17 @@ public:
 		{
 			proxy.IdentityF(dataModel[j].worldM);
 
-			dataModel[j].worldM.row1 = world[j].row1;
-			dataModel[j].worldM.row2 = world[j].row2;
-			dataModel[j].worldM.row3 = world[j].row3;
-			dataModel[j].worldM.row4 = world[j].row4;
+			/*dataModel[j].worldM.row1 = objects[j].row1;
+			dataModel[j].worldM.row2 = objects[j].row2;
+			dataModel[j].worldM.row3 = objects[j].row3;*/
+			//dataModel[j].worldM.row4 = objects[j].row4;
 			proxy.RotateXGlobalF(dataModel[j].worldM, G2D_DEGREE_TO_RADIAN(90.0), dataModel[j].worldM);
-			proxy.ScaleGlobalF(dataModel[j].worldM, world[j].row1, dataModel[j].worldM);
-			proxy.TranslateGlobalF(dataModel[j].worldM, world[j].row4, dataModel[j].worldM);
+			proxy.ScaleGlobalF(dataModel[j].worldM, objects[j].row1, dataModel[j].worldM);
+			proxy.TranslateGlobalF(dataModel[j].worldM, objects[j].row4, dataModel[j].worldM);
 
 			for (size_t i = 0; i < dataModel[j].materialCount; i++)
 			{
-				infoModel.materials[i] = dataModel[j].materials[i].attrib;
+				infoModel.materials[i] = dataModel[j].material_vec[i].attrib;
 				infoModel.matrices[i] = worldMatrix;
 			}
 		}
@@ -669,14 +649,17 @@ public:
 		GvkHelper::write_to_buffer(device, dataStorage[currentBuffer], &infoModel, sizeof(SHADER_MODEL_DATA));
 		if (GetAsyncKeyState('F'))
 		{
-			sfaudio.Create();
 			sfmusic.Create("../What the dog doin.wav", sfaudio, 0.05);
 			sfaudio.PlayMusic();
 		}
 		if (GetAsyncKeyState('J'))
 		{
-			audio.Create();
 			music.Create("../secondSong.wav", audio, 0.05);
+			audio.PlayMusic();
+		}
+		if (GetAsyncKeyState('B'))
+		{
+			music.Create("../Bicycle Pokemon HGSS.wav", audio, 0.05);
 			audio.PlayMusic();
 		}
 	}
@@ -707,7 +690,7 @@ public:
 		vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 
-		//worldCamera = viewMatrix;
+		worldCamera = viewMatrix;
 		float aspectRatio;
 		proxy.IdentityF(perspectiveLeftMtrx);
 		vlk.GetAspectRatio(aspectRatio);
@@ -735,74 +718,75 @@ public:
 			}
 		}
 	}
-	void UpdateCamera()
+void UpdateCamera()
+{
+	static auto Timeplus = std::chrono::system_clock::now();
+	auto Timeplus2 = std::chrono::system_clock::now();
+	float delta = std::chrono::duration_cast<std::chrono::seconds>(Timeplus2 - Timeplus).count();
+	//Timeplus = Timeplus2;
+	// TODO: Part 4c
+	proxy.InverseF(viewMatrix, worldCamera);
+	//// TODO: Part 4d
+	float totalY = 0;
+	float totalX = 0;
+	float totalZ = 0;
+	float tP = 0;
+	float tYAW = 0;
+	const float camera_speed = 0.005f;
+	float aspectratio = 0;
+	float space_bar = 0;
+	float left_Shift = 0;
+	float rightT = 0;
+	float leftT = 0;
+	GInput.GetState(23, space_bar);
+	GInput.GetState(14, left_Shift);
+	GController.GetState(0, 7, rightT);
+	GController.GetState(0, 6, leftT);
+	//// TODO: Part 4e
+	float W = 0;
+	float S = 0;
+	float LSY = 0;
+	GInput.GetState(60, W);
+	GInput.GetState(56, S);
+	GController.GetState(0, 17, LSY);
+	totalZ = W - S + LSY;
+
+	float D = 0;
+	float A = 0;
+	float LSX = 0;
+	GInput.GetState(41, D);
+	GInput.GetState(38, A);
+	GController.GetState(0, 16, LSX);
+	totalX = D - A + LSX;
+
+	//// TODO: Part 4f
+	float MYD = 0;
+	float MXD = 0;
+	float RSY = 0;
+	GController.GetState(0, 19, RSY);
+	// TODO: Part 4g
+	float RSX = 0;
+	GController.GetState(0, 18, RSX);
+	vlk.GetAspectRatio(aspectratio);
+	GW::GReturn result = GInput.GetMouseDelta(MXD, MYD);
+	totalY = space_bar - left_Shift + rightT - leftT;
+	//GW::MATH::GVECTORF temp = worldCamera.row4;
+	if (G_PASS(result) && result != GW::GReturn::REDUNDANT || (RSX != 0 || RSY != 0))
 	{
-
-		static auto Timeplus = std::chrono::system_clock::now();
-		auto Timeplus2 = std::chrono::system_clock::now();
-		float delta = std::chrono::duration_cast<std::chrono::seconds>(Timeplus2 - Timeplus).count();
-		//Timeplus = Timeplus2;
-		// TODO: Part 4c
-		proxy.InverseF(viewMatrix, worldCamera);
-		//// TODO: Part 4d
-		float totalY = 0;
-		float totalX = 0;
-		float totalZ = 0;
-		float tP = 0;
-		float tYAW = 0;
-		const float camera_speed = 0.0003f;
-		float aspectratio;
-		float space_bar;
-		float left_Shift;
-		float rightT;
-		float leftT;
-		GInput.GetState(23, space_bar);
-		GInput.GetState(14, left_Shift);
-		GController.GetState(0, 7, rightT);
-		GController.GetState(0, 6, leftT);
-		totalY = space_bar - left_Shift + rightT - leftT;
-		//// TODO: Part 4e
-		float W;
-		float S;
-		float LSY;
-		GInput.GetState(60, W);
-		GInput.GetState(56, S);
-		GController.GetState(0, 17, LSY);
-		totalZ = W - S + LSY;
-
-		float D;
-		float A;
-		float LSX;
-		GInput.GetState(41, D);
-		GInput.GetState(38, A);
-		GController.GetState(0, 16, LSX);
-		totalX = D - A + LSX;
-
-		//// TODO: Part 4f
-		float MYD;
-		float MXD;
-		float RSY;
-		GInput.GetMouseDelta(MXD, MYD);
-		GController.GetState(0, 19, RSY);
-		// TODO: Part 4g
-		float RSX;
-		GController.GetState(0, 18, RSX);
-		vlk.GetAspectRatio(aspectratio);
-		//// TODO: Part 4c
-
-		tP = 3.1344 * (-MYD / 20) / 600 + (-RSY / 30000) * (-3.14 * delta);
-		tYAW = 3.1344 * aspectratio * (MXD / 20) / 800 + (RSX / 30000) * (-3.14 * delta);
-		totalY = totalY * camera_speed * delta;
-		proxy.RotationYawPitchRollF(tYAW, tP, 0, cameraMtrxOut);
-		proxy.MultiplyMatrixF(worldCamera, cameraMtrxOut, worldCamera);
-		GW::MATH::GVECTORF Y = { 0.0f,totalY,0.0f,1.0f };
-		GW::MATH::GVECTORF XZ = { totalX * camera_speed * delta ,0.0,totalZ * camera_speed * delta, 1.0f };
-		proxy.TranslateGlobalF(worldCamera, Y, worldCamera);
-		proxy.TranslateLocalF(worldCamera, XZ, worldCamera);
-		proxy.InverseF(worldCamera, viewMatrix);
-	}; 
-
-	
+		tP = G_DEGREE_TO_RADIAN(65) * (MXD / 800) + (RSX / 300);
+		tYAW = G_DEGREE_TO_RADIAN(65) * aspectratio * (MYD / 600) + (-RSY / 300);
+		totalY = totalY * camera_speed;
+		proxy.RotateYGlobalF(worldCamera, tP, worldCamera);
+		proxy.RotateXLocalF(worldCamera, tYAW, worldCamera);
+	}
+	//worldCamera.row4 = temp;
+	// TODO: Part 4c
+	GW::MATH::GVECTORF Y = { 0.0f, totalY * camera_speed /** delta*/, 0.0f, 1.0f };
+	GW::MATH::GVECTORF XZ = { totalX * camera_speed /** delta*/ , 0.0, totalZ * camera_speed/* * delta*/, 1.0f };
+	proxy.TranslateGlobalF(worldCamera, Y, worldCamera);
+	proxy.TranslateLocalF(worldCamera, XZ, worldCamera);
+	proxy.InverseF(worldCamera, viewMatrix);
+};
 
 private:
 	void CleanUp()
@@ -857,8 +841,8 @@ void Helper_Parse()
 			{
 				game.getline(Buffer, 128);
 				names.push_back(Buffer);
-				world[count] = Getdata(game, world[count]);
-				cerr << names[count] << endl;
+				objects[count] = Getdata(game, objects[count]);
+				//cerr << names[count] << endl;
 				count++;
 			}
 		}
@@ -914,4 +898,20 @@ GW::MATH::GMATRIXF Getdata(ifstream& f, GW::MATH::GMATRIXF& g)
 	f.getline(buff, 128, ')');
 	g.row4.w = stof(buff);
 	return g;
+}
+
+vector<string> changeNames(std::vector<std::string> nameVec) 
+{
+	std::string slash = "../";
+	std::string h2b = ".h2b";
+	std::vector<std::string> temp;
+	for (size_t i = 0; i < nameVec.size(); i++)
+	{
+		nameVec[i] = nameVec[i].substr(0, nameVec[i].find("_"));
+		//temp.push_back(nameVec[i]);
+		nameVec[i] = slash + nameVec[i] + h2b;
+		//std::cout << temp[i] << endl;
+		//std::cout << nameVec[i] << endl;
+	}
+	return nameVec;
 }
