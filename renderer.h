@@ -15,7 +15,6 @@ const char* vertexShaderSource = R"(
 cbuffer MESH_INDEX
 {
     uint meshid; 
-	matrix modelid[1024];
 };
 
 // an ultra simple hlsl vertex shader
@@ -87,7 +86,6 @@ const char* pixelShaderSource = R"(
 cbuffer MESH_INDEX
 {
     uint meshid; 
-	matrix modelid[1024];
 };
 struct OBJ_ATTRIBUTES
 {
@@ -156,7 +154,7 @@ float4 main(OBJ_VERT_OUT inputVertex) : SV_TARGET
 using namespace std;
 using namespace GW;
 std::vector<std::string> names;
-GW::MATH::GMATRIXF objects[28];
+GW::MATH::GMATRIXF objects[1024];
 void Helper_Parse();
 GW::MATH::GMATRIXF Getdata(ifstream& f, GW::MATH::GMATRIXF& g);
 vector<std::string> changeNames(std::vector<std::string> nameVec);
@@ -219,7 +217,6 @@ class Renderer
 	AUDIO::GAudio sfaudio;
 	AUDIO::GMusic sfmusic;
 
-	int modelAmount = 28;
 	// TODO: Part 2b
 #define MAX_SUBMESH_PER_DRAW 1024
 	struct SHADER_MODEL_DATA
@@ -250,17 +247,17 @@ class Renderer
 
 		GW::MATH::GMATRIXF worldM = GW::MATH::GIdentityMatrixF;
 	};
-	struct MyStruct
+	struct MESH_INDEX
 	{
-		int ID;
-		GW::MATH::GMATRIXF worldMatrix[MAX_SUBMESH_PER_DRAW];
+		unsigned int meshid;
+		//GW::MATH::GMATRIXF worldMatrix[MAX_SUBMESH_PER_DRAW];
 	};
 	// TODO: Part 4g
 public:
 
 	SHADER_MODEL_DATA infoModel;
-	DATA_MODEL dataModel[100];
-	MyStruct temp;
+	DATA_MODEL dataModel[MAX_SUBMESH_PER_DRAW];
+	MESH_INDEX meshData;
 
 	Renderer(GW::SYSTEM::GWindow _win, GW::GRAPHICS::GVulkanSurface _vlk)
 	{
@@ -270,11 +267,6 @@ public:
 		music.Create("../Bicycle Pokemon HGSS.wav", audio, 0.05);
 		audio.PlayMusic();
 		sfaudio.Create();
-		for (size_t i = 0; i < names.size(); i++)
-		{
-			dataModel[i].parseH2B.Parse(names[i].c_str());
-			//std::cout << names[i] << endl;
-		}
 		win = _win;
 		vlk = _vlk;
 		unsigned int width, height;
@@ -312,7 +304,12 @@ public:
 
 		// TODO: Part 4g
 		// TODO: part 3b
-		for (size_t j = 0; j < modelAmount; j++)
+		for (size_t i = 0; i < names.size(); i++)
+		{
+			dataModel[i].parseH2B.Parse(names[i].c_str());
+			//std::cout << names[i] << endl;
+		}
+		for (size_t j = 0; j < names.size(); j++)
 		{
 
 			dataModel[j].vertexCount = dataModel[j].parseH2B.vertexCount;
@@ -331,17 +328,15 @@ public:
 
 
 		}
-		for (size_t j = 0; j < modelAmount; j++)
+		for (size_t j = 0; j < names.size(); j++)
 		{
 			proxy.IdentityF(dataModel[j].worldM);
 
-			/*dataModel[j].worldM.row1 = objects[j].row1;
-			dataModel[j].worldM.row2 = objects[j].row2;
-			dataModel[j].worldM.row3 = objects[j].row3;*/
-			//dataModel[j].worldM.row4 = objects[j].row4;
-			proxy.RotateXGlobalF(dataModel[j].worldM, G2D_DEGREE_TO_RADIAN(90.0), dataModel[j].worldM);
-			proxy.ScaleGlobalF(dataModel[j].worldM, objects[j].row1, dataModel[j].worldM);
-			proxy.TranslateGlobalF(dataModel[j].worldM, objects[j].row4, dataModel[j].worldM);
+			dataModel[j].worldM = objects[j];
+			//cout << dataModel[j].worldM.row1 << endl;
+			//proxy.RotateXLocalF(dataModel[j].worldM, G2D_DEGREE_TO_RADIAN(90.0), dataModel[j].worldM);
+			/*proxy.ScaleLocalF(dataModel[j].worldM, objects[j].row1, dataModel[j].worldM);
+			proxy.TranslateGlobalF(dataModel[j].worldM, objects[j].row4, dataModel[j].worldM);*/
 
 			for (size_t i = 0; i < dataModel[j].materialCount; i++)
 			{
@@ -361,7 +356,7 @@ public:
 
 		// TODO: Part 1c
 		// Create Vertex Buffer
-		for (size_t j = 0; j < modelAmount; j++)
+		for (size_t j = 0; j < names.size(); j++)
 		{
 			// Transfer triangle data to the vertex buffer. (staging would be prefered here)
 			GvkHelper::create_buffer(physicalDevice, device, sizeof(H2B::VERTEX) * dataModel[j].vertexCount,
@@ -697,23 +692,26 @@ public:
 		proxy.ProjectionVulkanLHF(1.134, aspectRatio, 0.1f, 100, perspectiveLeftMtrx);
 		
 		infoModel.view_matrix = viewMatrix;
-
+		/*for (size_t i = 0; i < names.size(); i++)
+		{
+			infoModel.matrices[i] = dataModel[i].worldM;
+		}*/
+		infoModel.matrices[0];
+		MATH::GVECTORF vec = {1,1,1,1};
+		proxy.TranslateGlobalF(GW::MATH::GIdentityMatrixF, vec, infoModel.matrices[0]);
 		GvkHelper::write_to_buffer(device, dataStorage[0], &infoModel, sizeof(infoModel));
 		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &setDescriptor[currentBuffer], 0, nullptr);
 		// TODO: Part 2i
 		//vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &setDescriptor[currentBuffer], 0, nullptr);
 		// now we can draw
 		VkDeviceSize offsets[] = { 0 };
-		for (size_t j = 0; j < modelAmount; j++)
+		for (size_t j = 0; j < 7; j++)
 		{
 			vkCmdBindVertexBuffers(commandBuffer, 0, 1, &dataModel[j].vertexHandle, offsets);
 			vkCmdBindIndexBuffer(commandBuffer, dataModel[j].vertexHandle2, *offsets, VK_INDEX_TYPE_UINT32);
-			for (size_t i = 0; i < dataModel[j].materialCount; i++)
+			for (size_t i = 0; i < dataModel[j].meshCount; i++)
 			{
-
-				temp.worldMatrix[j] = dataModel[j].worldM;
-				temp.ID = dataModel[j].meshes[i].materialIndex;
-				vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(unsigned), &temp);
+				vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(unsigned), &i);
 				vkCmdDrawIndexed(commandBuffer, dataModel[j].meshes[i].drawInfo.indexCount, 1, dataModel[j].meshes[i].drawInfo.indexOffset, 0, 0);
 			}
 		}
@@ -732,7 +730,7 @@ void UpdateCamera()
 	float totalZ = 0;
 	float tP = 0;
 	float tYAW = 0;
-	const float camera_speed = 0.005f;
+	const float camera_speed = 0.003f;
 	float aspectratio = 0;
 	float space_bar = 0;
 	float left_Shift = 0;
@@ -807,7 +805,7 @@ private:
 		}
 		// TODO: Part 2d
 		// TODO: Part 2e
-		for (size_t i = 0; i < modelAmount; i++)
+		for (size_t i = 0; i < names.size(); i++)
 		{
 			vkDestroyBuffer(device, dataModel[i].vertexHandle, nullptr);
 			vkFreeMemory(device, dataModel[i].vertexData, nullptr);
@@ -857,44 +855,44 @@ GW::MATH::GMATRIXF Getdata(ifstream& f, GW::MATH::GMATRIXF& g)
 	//row 1
 	f.getline(buff, 128, '(');
 	f.getline(buff, 128, ',');
-	g.row1.x = stof(buff); //x_pos
-	f.getline(buff, 128, ',');
-	g.row1.y = stof(buff); //y_pos
-	f.getline(buff, 128, ',');
-	g.row1.z = stof(buff); //z_pos
-	f.getline(buff, 128, ')');
+	g.row1.x = stof(buff);
 	g.row1.w = stof(buff);
+	f.getline(buff, 128, ',');
+	g.row1.y = stof(buff);
+	f.getline(buff, 128, ',');
+	g.row1.z = stof(buff);
+	f.getline(buff, 128, ')');
 
 	//row 2
 	f.getline(buff, 128, '(');
 	f.getline(buff, 128, ',');
-	g.row2.x = stof(buff); //x_pos
+	g.row2.x = stof(buff);
 	f.getline(buff, 128, ',');
-	g.row2.y = stof(buff); //y_pos
+	g.row2.y = stof(buff);
 	f.getline(buff, 128, ',');
-	g.row2.z = stof(buff); //z_pos
+	g.row2.z = stof(buff);
 	f.getline(buff, 128, ')');
 	g.row2.w = stof(buff);
 
 	//row 3
 	f.getline(buff, 128, '(');
 	f.getline(buff, 128, ',');
-	g.row3.x = stof(buff); //x__pos
+	g.row3.x = stof(buff);
 	f.getline(buff, 128, ',');
-	g.row3.y = stof(buff); //y_pos
+	g.row3.y = stof(buff);
 	f.getline(buff, 128, ',');
-	g.row3.z = stof(buff); //z_pos
+	g.row3.z = stof(buff);
 	f.getline(buff, 128, ')');
 	g.row3.w = stof(buff);
 
 	//row 4
 	f.getline(buff, 128, '(');
 	f.getline(buff, 128, ',');
-	g.row4.x = stof(buff); //x_pos
+	g.row4.x = stof(buff);
 	f.getline(buff, 128, ',');
-	g.row4.y = stof(buff); //y_pos
+	g.row4.y = stof(buff);
 	f.getline(buff, 128, ',');
-	g.row4.z = stof(buff); //z_pos
+	g.row4.z = stof(buff);
 	f.getline(buff, 128, ')');
 	g.row4.w = stof(buff);
 	return g;
@@ -904,7 +902,7 @@ vector<string> changeNames(std::vector<std::string> nameVec)
 {
 	std::string slash = "../";
 	std::string h2b = ".h2b";
-	std::vector<std::string> temp;
+	//std::vector<std::string> temp;
 	for (size_t i = 0; i < nameVec.size(); i++)
 	{
 		nameVec[i] = nameVec[i].substr(0, nameVec[i].find("_"));
